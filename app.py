@@ -219,34 +219,39 @@ def create_excel(df, start_date, end_date, source_name):
         c.font = hdr_font; c.fill = hdr_fill; c.alignment = center; c.border = border
     ws.row_dimensions[3].height = 22
 
-    for ri, row in enumerate(df.itertuples(index=False), start=4):
+    # Use iterrows for safe named access — avoids positional tuple issues with
+    # column names containing spaces/special chars ("Change %", "Day Range")
+    for ri, row in enumerate(df.iterrows(), start=4):
+        _, row = row
         fill = alt_fill if ri % 2 == 0 else PatternFill("solid", start_color="FFFFFF")
 
-        dc = ws.cell(row=ri, column=1, value=str(row.Date))
+        dc = ws.cell(row=ri, column=1, value=str(row["Date"]))
         dc.alignment = center; dc.border = border; dc.fill = fill
         dc.font = Font(name="Arial", size=10)
 
-        for ci, val in enumerate([row.Open, row.High, row.Low, row.Close, row.Volume], start=2):
-            c = ws.cell(row=ri, column=ci, value=val)
+        for ci, col in enumerate(["Open", "High", "Low", "Close", "Volume"], start=2):
+            val = row[col]
+            c = ws.cell(row=ri, column=ci, value=float(val) if pd.notna(val) else None)
             c.alignment = center; c.border = border; c.fill = fill
             c.font = Font(name="Arial", size=10)
             c.number_format = '#,##0.00' if ci <= 5 else '#,##0'
 
-        chg_val = row.Change if not pd.isna(row.Change) else None
+        chg_val = float(row["Change"]) if pd.notna(row["Change"]) else None
         chg = ws.cell(row=ri, column=7, value=chg_val)
         chg.alignment = center; chg.border = border; chg.fill = fill
         chg.number_format = '+#,##0.00;-#,##0.00;"-"'
         if chg_val is not None:
             chg.font = Font(name="Arial", size=10, color="006400" if chg_val >= 0 else "8B0000")
 
-        pct_raw = row._8 if not pd.isna(row._8) else None  # "Change %"
+        pct_raw = float(row["Change %"]) if pd.notna(row["Change %"]) else None
         chg_pct = ws.cell(row=ri, column=8, value=(pct_raw / 100 if pct_raw is not None else None))
         chg_pct.alignment = center; chg_pct.border = border; chg_pct.fill = fill
         chg_pct.number_format = '+0.00%;-0.00%;"-"'
         if pct_raw is not None:
             chg_pct.font = Font(name="Arial", size=10, color="006400" if pct_raw >= 0 else "8B0000")
 
-        dr = ws.cell(row=ri, column=9, value=row._9)   # "Day Range"
+        dr_val = float(row["Day Range"]) if pd.notna(row["Day Range"]) else None
+        dr = ws.cell(row=ri, column=9, value=dr_val)
         dr.alignment = center; dr.border = border; dr.fill = fill
         dr.number_format = '#,##0.00'; dr.font = Font(name="Arial", size=10)
 
